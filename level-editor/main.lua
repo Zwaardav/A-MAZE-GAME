@@ -12,6 +12,21 @@ end
 ]]
 
 function love.load()
+	--- Love2d 0.10 compatibility
+	if love._version_minor >= 10 then
+		love.mouse.isDown10 = love.mouse.isDown
+		
+		love.mouse.isDown = function(btn)
+			if btn == "l" then
+				return love.mouse.isDown10(1)
+			elseif btn == "r" then
+				return love.mouse.isDown10(2)
+			elseif btn == "m" then
+				return love.mouse.isDown10(3)
+			end
+		end
+	end
+
 	rows = {}
 	for r = 1, 14 do
 		table.insert(rows, {64,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,64})
