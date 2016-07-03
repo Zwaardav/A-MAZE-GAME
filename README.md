@@ -4,8 +4,8 @@ A maze game with enemies, barriers and warps for TI-83+/TI-84+ in assembly
 ## Files
 File | Description
 --- | ---
-ATPDNGME.8XP | An assembled binary
-ATPDNGME.z80 | The main source file
+AMAZEGME.8XP | An assembled binary
+AMAZEGME.z80 | The main source file
 i/amaze/moveplayer.inc | Handles player movement and collision detection
 i/amaze/enemies.inc | Handles enemy movement and display
 i/amaze/codeinput.inc | Handles continue passwords
