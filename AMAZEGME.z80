@@ -1,0 +1,909 @@
+.NOLIST
+#include "ti83plus.inc"
+.LIST
+
+.org 9D93h
+.db t2ByteTok, tAsmCmp
+
+;==========================================
+; A maze game for TI-83+/TI-84+
+; David K
+; June/July 2016
+;==========================================
+; D E F I N E S   A N D   I N C L U D E S
+;==========================================
+
+#define devLevels 1
+
+heartSymbol .equ $EB
+apos .equ $27  ; Apparently these cause issues in level names?
+
+#include "../Programs/i/bytemod.inc"  ; Modulo calculations for single bytes.
+
+#include "../Programs/i/amaze/moveplayer.inc"
+#include "../Programs/i/amaze/enemies.inc"
+#include "../Programs/i/amaze/codeinput.inc"
+
+;==========================================
+; P R O G R A M
+;==========================================
+
+; Some things that only need to be done upon starting
+	res AppAutoScroll, (IY+AppFlags)
+	B_CALL(_RunIndicOff)
+	
+;------------------------------------------
+; M a i n   m e n u
+;------------------------------------------
+StartProg:  ; Entry, jumped
+	B_CALL(_ClrLCDFull)
+	
+	; Just start there...
+	xor a
+	ld (CURCOL), a
+	xor a
+	ld (CURROW), a
+	
+	set textInverse, (IY+textFlags)
+	ld hl, txtMenuTitles
+	B_CALL(_PutS)
+	res textInverse, (IY+textFlags)
+	
+	;B_CALL(_NewLine)
+	ld a, 1
+	ld hl, txtMenuItems1
+	call DispMenuItem
+	
+	B_CALL(_NewLine)
+	ld a, 2
+	ld hl, txtMenuItems2
+	call DispMenuItem
+	
+	B_CALL(_NewLine)
+	ld a, 3
+	ld hl, txtMenuItems3
+	call DispMenuItem
+	
+	#ifdef devLevels
+	ld hl, $3800
+	ld (PENCOL), hl
+	ld hl, txtDevLevelsIncluded
+	B_CALL(_VPutS)
+	#endif
+	
+MenuKeyLoop:  ; Entry, jumped loop
+	B_CALL(_GetKey)
+	cp k1
+	jr z, MenuHandleItem1
+	cp k2
+	jr z, MenuHandleItem2
+	cp k3
+	jr z, MenuHandleItem3
+	cp kClear
+	jr z, MenuHandleItem3
+	cp kQuit
+	jr z, MenuHandleItem3
+	
+	cp kUp
+	jr z, MenuHandleUp
+	cp kDown
+	jr z, MenuHandleDown
+	cp kEnter
+	jr z, MenuHandleSelect
+	
+	jr MenuKeyLoop
+	
+DispMenuItem:  ; Called. Expects hl, and A to indicate the number of the current menu option.
+	ld b, a
+	ld a, (menuselection)
+	cp b
+	call z, HlNow
+	
+	ld a, (menuID)
+	or a
+	call nz, SkipString
+	B_CALL(_PutS)
+	res textInverse, (IY+textFlags)
+	ret
+SkipString:  ; Called, also jumped loop, expects hl
+	ld a, (hl)
+	inc hl
+	or a
+	jr nz, SkipString
+	ret
+HlNow:  ; Called
+	set textInverse, (IY+textFlags)
+	ret
+	
+MenuHandleItem1:  ; Jumped
+	ld a, (menuID)
+	or a
+	jr z,ToGameMenu
+	jp StartNewGame
+MenuHandleItem2:  ; Jumped
+	ld a, (menuID)
+	or a
+	jr z,StartInstructions
+	jr StartCode
+MenuHandleItem3:  ; Jumped
+	ld a, (menuID)
+	or a
+	jr z,EndProg
+	jr ToMainMenu
+MenuHandleUp:  ; Jumped
+	ld a, (menuselection)
+	sub 1
+	jr c, MenuHandleEnd
+	jr z, MenuHandleEnd
+	ld (menuselection), a
+	jp StartProg
+MenuHandleDown:  ; Jumped
+	ld a, (menuselection)
+	inc a
+	cp 4
+	jr nc, MenuHandleStart
+	ld (menuselection), a
+	jp StartProg
+MenuHandleStart:  ; Jumped
+	ld a, 1
+	ld (menuselection), a
+	jp StartProg
+MenuHandleEnd:  ; Jumped
+	ld a, 3
+	ld (menuselection), a
+	jp StartProg
+MenuHandleSelect:  ; Jumped
+	ld a, (menuselection)
+	cp 1
+	jr z, MenuHandleItem1
+	cp 2
+	jr z, MenuHandleItem2
+	cp 3
+	jr z, MenuHandleItem3
+	jp MenuKeyLoop  ; None of the above
+EndProg:  ; Jumped
+	B_CALL(_RunIndicOn)
+	set AppAutoScroll, (IY+AppFlags)
+	ret
+	
+ToMainMenu:
+	xor a
+	ld (menuID), a
+	jp StartProg
+ToGameMenu:
+	ld a, 1
+	ld (menuID), a
+	jp StartProg
+;------------------------------------------
+; M i s c   s c r e e n s
+;------------------------------------------
+StartInstructions:  ; Jumped
+	B_CALL(_ClrLCDFull)
+	
+	xor a
+	ld (CURCOL), a
+	xor a
+	ld (CURROW), a
+	
+	ld hl, txtInstrComingsoon
+	B_CALL(_PutS)
+	
+	B_CALL(_GetKey)
+	
+	jp StartProg
+
+StartCode:  ; Jumped
+	B_CALL(_ClrLCDFull)
+	
+	ld hl, $0000
+	ld (PENCOL), hl
+	ld hl, txtCodeScreen
+	B_CALL(_VPutS)
+	
+	ld de, $0700
+	ld (PENCOL), de
+	B_CALL(_VPutS)
+	
+	ld de, $0E00
+	ld (PENCOL), de
+	B_CALL(_VPutS)
+	
+	jp PasswordInputScreen
+	
+StartGameCompleteScreen:  ; Jumped
+	B_CALL(_ClrLCDFull)
+	
+	xor a
+	ld (CURCOL), a
+	xor a
+	ld (CURROW), a
+	
+	ld hl, txtGameComplete
+	B_CALL(_PutS)
+	
+	B_CALL(_GetKey)
+	
+	jp StartProg
+StartGameOverScreen:  ; Jumped
+	B_CALL(_ClrLCDFull)
+	
+	ld a, 3
+	ld (CURCOL), a
+	ld (CURROW), a
+	
+	ld hl, txtGameOver
+	B_CALL(_PutS)
+	
+	B_CALL(_GetKey)
+	
+	jp StartProg
+;------------------------------------------
+; G a m e   p r e p a r a t i o n s
+;------------------------------------------
+StartNextLevel:  ; Jumped
+	; What is the current level's tiles pointer?
+	ld hl, (currentLevelPointer)
+
+	; The amount of columns we want to jump for each row
+	ld d, 0 \ ld e, 16
+	
+	ld a, (currentLevelHeight)
+	ld b, a
+SkipOverLevelLoop:  ; Entry, jumped loop
+	add hl, de
+	
+	djnz SkipOverLevelLoop
+	
+	jr LoadLevel
+StartNewGame:  ; Jumped
+	; Start with the first level! And 3 lives.
+	ld a, 3
+	ld (playerLives), a
+	
+	ld hl, level1Data
+
+LoadLevel:  ; Entry, jumped. Expects hl to be pointer to level data.
+	ld a, (playerLives)
+	or a
+	jr z, StartGameOverScreen
+
+	ld (currentLevelMasterPointer), hl
+	
+	ld a, (hl)
+	ld (currentLevelNumber), a
+	
+	; Maybe we reached the end? The level number would be 255 in that case.
+	cp 255
+	jr z, StartGameCompleteScreen
+	
+	inc hl
+	ld a, (hl)
+	ld (currentLevelHeight), a
+	
+	inc hl
+	ld a, (hl)
+	ld (playerx), a
+	ld (playerStartX), a
+	
+	inc hl
+	ld a, (hl)
+	ld (playery), a
+	ld (playerStartY), a
+	
+	inc hl
+	ld a, (hl)
+	ld (currentLevelAmountOpeners), a
+	
+	inc hl
+	ld a, (hl)
+	ld (currentLevelAmountWarps), a
+	
+	inc hl
+	ld a, (hl)
+	ld (currentLevelAmountEnemies), a
+	
+	inc hl \ inc hl
+	
+	; Now we have the level name, which we want to have centered!
+	ld (currentLevelNamePointer), hl
+	
+	B_CALL(_StrLength)
+	
+	; The byte before the string is the length.
+	dec hl
+	ld (hl), c
+	
+	; Now that that's known, we can run _SStringLength!
+	B_CALL(_SStringLength)
+	
+	; That returned to both a and b, according to the documentation.
+	ld a, 95
+	sub b
+	
+	srl a
+	ld (currentLevelNameX), a
+	
+	; Now move that hl beyond that string
+	ld a, (hl)
+	ld d, 0 \ ld e, a  ; ld de, a
+	add hl, de
+	inc hl \ inc hl
+	
+	; Now we're at the trigger data.
+	ld (currentLevelOpenerPointer), hl
+	
+	; Re-close any previously opened barrier! Problem: we need currentLevelPointer, but that's easily fixed. CAUTION: If you add something fancy to the level format, don't forget to adjust this!
+	ld a, (currentLevelAmountOpeners)
+	ld b, a
+	ld a, (currentLevelAmountWarps)
+	add a, b
+	rla  ; double
+	
+	ld b, a
+	; Now, how many bytes for the enemies?
+	ld a, (currentLevelAmountEnemies)
+	ld c, a
+	add a, c \ add a, c
+	rla  ; double that for x6
+	add a, b
+	
+	
+	ld d, 0 \ ld e, a
+	;ld de, 64
+	push hl
+	add hl, de
+	ld (currentLevelPointer), hl
+	;ld de, -64
+	;add hl, de
+	pop hl
+	
+	; How many barriers do we actually have?
+	ld a, (currentLevelAmountOpeners)
+	or a
+	jr z, SkipRecloseBarriers  ; No barriers
+	
+	ld b, a
+RecloseBarriersLoop:  ; Entry, jumped loop
+	ld e, (hl)
+	inc hl
+	ld d, (hl)
+	inc hl
+	
+	push hl
+	ld hl, (currentLevelPointer)
+	
+	add hl, de
+	
+	ld a, (hl)
+	cp 5
+	call z, PlaceWallBack
+	cp 6
+	call z, PlaceBarrierBack
+	
+	pop hl
+	djnz RecloseBarriersLoop
+SkipRecloseBarriers:  ; Entry, jumped
+	; Then we have the warps data, which is also a certain amount of bytes.
+	ld (currentLevelWarpPointer), hl
+	
+	;ld de, 32
+	ld a, (currentLevelAmountWarps)
+	ld d, 0 \ ld e, a  ; ld de, a
+	sla e
+	add hl, de
+	
+	; And now, the enemies.
+	ld (currentLevelEnemyPointer), hl
+	
+	; Do we have any enemies?
+	ld a, (currentLevelAmountEnemies)
+	or a
+	jr z, SkipInitEnemies  ; Nope
+	
+	ld b, a
+EnemyInitLoop:  ; Entry, jumped loop
+	push bc
+	ld d, h \ ld e, l  ; ld de, hl
+	inc hl \ inc hl \ inc hl  ; Not gonna use a register to add instead
+	
+	;ld b, 0 \ ld c, 3  ; ld bc, 3
+	ld bc, 3
+	
+	ldir
+	
+	pop bc
+	djnz EnemyInitLoop
+SkipInitEnemies:  ; Entry, jumped
+	; Done loading all that! Now we're at the actual tiles.
+	push hl
+	
+	;xor a
+	;ld (scrolled), a
+	call ReScroll
+	
+	;ld (currentLevelPointer), hl  ; Needed earlier
+	
+	B_CALL(_ClrLCDFull)
+	
+	xor a
+	ld (CURCOL), a
+	ld (CURROW), a
+	
+	ld a, (playerLives)
+	ld b, a
+	ld a, heartSymbol
+HeartsLoop:
+	B_CALL(_PutC)
+	djnz HeartsLoop
+	
+	xor a
+	ld h, a
+	ld a, (currentLevelNumber)
+	ld l, a
+	
+	ld a, 7
+	ld (CURCOL), a
+	ld a, 3
+	ld (CURROW), a
+	
+	B_CALL(_DispHL)
+	
+	ld a, 4
+	ld (CURCOL), a
+	
+	ld hl, txtLevel
+	B_CALL(_PutS)
+	
+	ld a, (currentLevelNameX)
+	ld (PENCOL), a
+	ld a, $26
+	ld (PENROW), a
+	
+	ld hl, (currentLevelNamePointer)
+	B_CALL(_VPutS)
+	
+	; Any continue code?
+	call DisplayContinueCode
+	
+	call Delay
+	
+	ld hl, $3802 ;$2100
+	ld (PENCOL), hl
+	ld hl, txtPressKey
+	B_CALL(_VPutS)
+	
+	B_CALL(_GetKey)
+	
+	pop hl
+;------------------------------------------
+; G a m e p l a y
+;------------------------------------------
+	call DisplayLevel
+	call ShowPlayer
+	ld a, 1 \ call ShowHideAllEnemies
+	
+MainGameKeyLoop:  ; Entry, jumped loop
+	B_CALL(_GetKey)
+	
+	cp kDown   \ jp z, PlayerGoDown
+	cp kUp     \ jp z, PlayerGoUp
+	cp kLeft   \ jp z, PlayerGoLeft
+	cp kRight  \ jp z, PlayerGoRight
+	cp k2      \ jp z, PlayerGoDown
+	cp k8      \ jp z, PlayerGoUp
+	cp k4      \ jp z, PlayerGoLeft
+	cp k6      \ jp z, PlayerGoRight
+	
+	cp kClear  \ jp z, EndProg
+	cp kQuit   \ jp z, EndProg
+	
+	
+	jr MainGameKeyLoop
+	
+	ret
+;------------------------------------------
+; G a m e   d i s p l a y   r o u t i n e s
+;------------------------------------------
+DisplayLevel:  ; Called, expects hl to be pointer to start of level tiles
+	; Starting point offset, will be necessary to change when scrolling is possible
+	push hl
+	ld a, (scrolled)
+	ld h, 0 \ ld l, a  ; ld hl, a
+	
+	add hl, hl \ add hl, hl \ add hl, hl \ add hl, hl ; x16
+	
+	ld d, h \ ld e, l
+	
+	pop hl
+	
+	add hl, de  ; hl is now a pointer to where we should start drawing.
+	
+	xor a
+	ld (CURCOL), a
+	xor a
+	ld (CURROW), a
+	
+	; How many tiles to display? (128!)
+	ld a, 128
+	ld b, a
+	
+TileDisplayLoop:  ; Entry, jumped loop
+	push bc
+
+	;res textInverse, (IY+textFlags)
+	
+	ld a, (hl)
+	call GetTileChar
+	
+	push hl
+	
+	B_CALL(_PutC)
+	
+	pop hl
+	inc hl
+	
+	pop bc
+	djnz TileDisplayLoop
+	
+	; We're out of that loop!
+	;res textInverse, (IY+textFlags)
+	
+	ret
+	
+GetTileChar:  ; Called
+	cp 32
+	jr c, GetTileCharEmpty
+	cp 48
+	jr c, GetTileCharBarrierOpener
+	cp 64
+	jr c, GetTileCharWarp
+	jr z, GetTileCharWall
+	cp 65
+	jr z, GetTileCharBarrier
+	cp 96
+	jr z, GetTileCharFinish
+	jr GetTileCharUnknown
+GetTileCharEmpty:  ; Jumped
+	ld a, ' '
+	ret
+GetTileCharBarrierOpener:  ; Jumped
+	ld a, $ED
+	ret
+GetTileCharWarp:  ; Jumped
+	ld a, $0B
+	ret
+GetTileCharWall:  ; Jumped
+	;set textInverse, (IY+textFlags)
+	ld a, $E0
+	ret
+GetTileCharBarrier:  ; Jumped
+	ld a, '#'
+	ret
+GetTileCharFinish:  ; Jumped
+	ld a, $F1
+	ret
+GetTileCharUnknown:  ; Jumped
+	ld a, '?'
+	ret
+	
+ShowPlayer:  ; Called
+	ld a, (playerX)
+	ld (CURCOL), a
+	ld a, (scrolled) ; We need to subtract the scroll value
+	ld b, a
+	ld a, (playerY)
+	sub b
+	ld (CURROW), a
+	ld a, '*'  ; That circle: $ED
+	B_CALL(_PutMap)
+	ret
+	
+UnShowPlayer:  ; Called
+	ld a, (playerX)
+	ld (CURCOL), a
+	ld a, (scrolled) ; We need to subtract the scroll value
+	ld b, a
+	ld a, (playerY)
+	sub b
+	ld (CURROW), a
+	ld a, ' '
+	B_CALL(_PutMap)
+	ret
+;------------------------------------------
+; T h e s e   b e l o n g   t o   g a m e   p r e p a r a t i o n
+;------------------------------------------
+PlaceWallBack:  ; Called
+	ld a, 64
+	ld (hl), a
+	ret
+PlaceBarrierBack:  ; Called
+	ld a, 65
+	ld (hl), a
+	ret
+;------------------------------------------
+; D e l a y
+;------------------------------------------
+Delay:  ; Called
+	ld b, 255
+DelayLoopOuter:
+	ld c, b
+	ld b, 255
+DelayLoopInner:
+	nop \ nop \ nop \ nop \ nop \ nop \ nop \ nop \ nop \ nop
+	djnz DelayLoopInner
+	ld b, c
+	djnz DelayLoopOuter
+	ret
+
+;==========================================
+; D A T A   ( V A R I A B L E S )
+;==========================================
+
+menuID: .db 0  ; 0: main, 1: start
+menuselection: .db 0  ; 1/2/3
+
+currentLevelNumber: .db 0
+currentLevelHeight: .db 0
+currentLevelMasterPointer: .dw 0
+currentLevelPointer: .dw 0  ; Actually tiles pointer
+currentLevelOpenerPointer: .dw 0
+currentLevelWarpPointer: .dw 0
+currentLevelEnemyPointer: .dw 0
+currentLevelNamePointer: .dw 0
+
+currentLevelNameX: .db 0
+
+currentLevelAmountOpeners: .db 0
+currentLevelAmountWarps: .db 0
+currentLevelAmountEnemies: .db 0
+
+playerX: .db 0
+playerY: .db 0
+playerStartX: .db 0
+playerStartY: .db 0
+
+playerLives: .db 0
+
+scrolled: .db 0
+
+;==========================================
+; S T R I N G S
+;==========================================
+
+txtMenuTitles: .db "  A MAZE GAME   ",0, "START GAME      ",0
+txtMenuItems1: .db "1. Start game",0,    "1. New game",0
+txtMenuItems2: .db "2. Instructions",0,  "2. Continue",0
+txtMenuItems3: .db "3. Quit",0,          "3. Back",0
+
+
+txtInstrComingsoon: .db "Instructions coming soon! Press any key to continue",0
+;txtCodeComingSoon: .db "Continue screen coming soon! Press any key to continue",0
+txtGameComplete: .db "Congratulations! You completed the game!",0
+
+txtCodeScreen: .db "Please enter a continue",0,"password here, if you have",0,"one.",0
+txtNYI: .db "NYI",0
+txtPasswordCorrect: .db "Correct!",0
+txtPasswordIncorrect: .db "Incorrect!",0
+txtGameOver: .db "Game  Over",0
+txtContinuePassword: .db "Continue password: ",0
+
+#ifdef devLevels
+txtDevLevelsIncluded: .db $C1,"Debug levels included]",0
+#endif
+
+
+txtLevel: .db "Level",0
+txtPressKey: .db "- Press any key to continue -",0
+
+;==========================================
+; L E V E L   D A T A
+;==========================================
+; First vars: levelnumber, height, playerstartx, playerstarty, #openers, #warps, #enemies
+;==========================================
+
+level1Data: .db 1, 14, 3, 1, 1, 0, 0, 0,"Here It Begins",0
+	.dw 163
+	; no warps
+	; no enemies
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 0, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 65, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 0, 64, 0, 0, 0, 0, 0, 0, 0, 32, 64, 64, 64
+	.db 64, 64, 64, 96, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+level2Data: .db 2, 14, 7, 12, 0, 1, 0, 0,"Warping and Wrapping",0
+	; no openers
+	.db 10,4
+	; no enemies
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 0, 0, 0, 0, 0, 0, 64, 64, 0, 0, 0, 0, 0, 0, 0, 0
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 48, 64, 0, 0, 0, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 0, 64, 0, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 0, 0, 96, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 0, 0, 0, 0, 0, 0, 64, 64, 0, 0, 0, 0, 0, 0, 0, 0
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 0, 0, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+level3Data: .db 3, 20, 4, 1, 0, 0, 4, 0,"Time for More of a Challenge",0
+	; no openers
+	; no warps
+	.db 0,0,0,1,16,3, 0,0,0,5,16,3, 0,0,0,9,16,3, 0,0,0,13,16,3
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	.db 64, 64, 0, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 64, 0, 64, 0, 0, 64, 0, 64, 64, 0, 0, 64, 64, 0, 64
+	.db 64, 64, 0, 64, 64, 0, 64, 0, 64, 64, 64, 0, 64, 64, 0, 64
+	.db 64, 64, 0, 0, 64, 0, 64, 0, 0, 0, 64, 0, 64, 0, 0, 64
+	.db 64, 64, 64, 0, 64, 0, 64, 64, 64, 0, 64, 0, 64, 0, 64, 64
+	.db 64, 64, 64, 0, 64, 0, 64, 64, 64, 0, 64, 0, 64, 0, 64, 64
+	.db 0, 0, 0, 0, 64, 0, 64, 64, 64, 0, 64, 0, 64, 0, 0, 0
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 0, 64, 0, 64, 64, 0, 64
+	.db 64, 64, 64, 64, 64, 0, 64, 64, 64, 0, 64, 0, 64, 64, 0, 64
+	.db 64, 64, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 64, 64, 0, 64
+	.db 64, 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 0, 64, 64, 0, 64
+	.db 64, 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 0, 64, 64, 0, 64
+	.db 64, 64, 0, 0, 0, 0, 0, 64, 64, 0, 0, 0, 64, 0, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 96, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+level4Data: .db 4, 14, 1, 1, 0, 0, 19, 0,"Don",apos,"t get caught in it",0
+	; no openers
+	; no warps
+	.db 0,0,0,5,1,2, 0,0,0,7,1,2, 0,0,0,11,3,1, 0,0,0,13,1,2, 0,0,0,13,5,2, 0,0,0,12,6,1, 0,0,0,11,7,1, 0,0,0,10,8,1, 0,0,0,9,9,1, 0,0,0,8,8,2, 0,0,0,7,7,2, 0,0,0,6,6,2, 0,0,0,5,5,2, 0,0,0,4,6,1, 0,0,0,3,7,1, 0,0,0,3,12,1, 0,0,0,9,12,1, 0,0,0,6,10,2, 0,0,0,12,10,2
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 4, 0, 2, 0, 2, 0, 3, 0, 4, 0, 2, 64, 64
+	.db 64, 0, 64, 0, 64, 0, 64, 0, 64, 0, 64, 0, 64, 0, 64, 64
+	.db 64, 0, 0, 1, 0, 3, 64, 4, 0, 1, 64, 1, 0, 3, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 64
+	.db 64, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 64
+	.db 64, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 64
+	.db 64, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 64
+	.db 64, 0, 64, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 64, 64
+	.db 64, 0, 64, 2, 64, 64, 2, 64, 64, 2, 64, 64, 2, 64, 64, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64
+	.db 64, 64, 64, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 96, 64
+	
+level5Data: .db 5, 20, 14, 1, 4, 2, 8, 0,"More complicated",0
+	.dw 60, 57, 54, 51
+	.db 1,12, 8,12
+	.db 0,0,0,1,8,4, 0,0,0,2,8,4, 0,0,0,9,10,4, 0,0,0,10,10,4, 0,0,0,7,14,3, 0,0,0,8,14,4, 0,0,0,1,18,4, 0,0,0,14,18,3
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 96, 0, 65, 0, 0, 65, 0, 0, 65, 0, 0, 65, 0, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 0, 0, 0, 0, 0, 0, 0, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 4, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 64
+	.db 64, 64, 0, 64, 0, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 64, 32, 64, 0, 64, 0, 64, 4, 0, 0, 3, 48, 64, 0, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 0, 64, 0, 64, 64, 64, 0, 64
+	.db 64, 0, 0, 33, 0, 49, 64, 64, 0, 0, 0, 0, 0, 0, 0, 64
+	.db 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 0, 64
+	.db 64, 0, 64, 0, 0, 0, 34, 64, 64, 35, 0, 0, 0, 64, 0, 64
+	.db 64, 0, 64, 0, 64, 64, 0, 64, 64, 0, 64, 64, 0, 64, 0, 64
+	.db 64, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+#ifdef devLevels
+
+level91Data: .db 91, 14, 1, 1, 0, 1, 0, 0,"Development level 1",0
+	; no openers
+	.db 0,0
+	; no enemies
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 0, 65, 0, 96, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 48, 0, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 0, 96, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+level92Data: .db 92, 26, 1, 1, 0, 0, 0, 0,"Development level 2",0
+	; no openers
+	; no warps
+	; no enemies
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 0, 0, 0, 0, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 64, 64, 64, 64, 64, 64, 0, 64, 64, 64, 0, 64, 64, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 64, 64, 64, 96, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+level93Data: .db 93, 14, 1, 1, 0, 6, 0, 0,"Development level 3",0
+	; no openers
+	.db 1,7, 4,11, 4,5, 8,1, 13,6, 8,11
+	; no enemies
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 51, 64, 64, 64, 0, 0, 0, 0, 0, 52, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 48, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 53, 0, 0, 0, 0, 0, 64, 64
+	.db 64, 0, 64, 64, 50, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 0, 64, 64, 0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 49, 64, 64, 0, 64, 64, 64, 0, 0, 0, 0, 0, 96, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+level94Data: .db 94, 14, 3, 2, 1, 1, 4, 0,"Enemies testing level",0
+	.dw 71
+	.db 6,6
+	.db 0,0,0,13,3,3, 0,0,0,8,12,4, 0,0,0,7,12,3, 0,0,0,1,3,2
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 64, 4, 0, 2, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 64
+	.db 64, 0, 0, 0, 0, 64, 48, 64, 0, 0, 0, 64, 1, 0, 3, 64
+	.db 64, 0, 0, 0, 0, 32, 64, 65, 0, 0, 0, 64, 64, 64, 64, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 64
+	.db 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64
+	.db 64, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	.db 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+	
+#endif
+	
+	.db 255  ; The end of all the levels!
+
+;==========================================
+; E N D
+;==========================================
+
+.end
