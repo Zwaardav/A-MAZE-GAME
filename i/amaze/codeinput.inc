@@ -354,8 +354,7 @@ continueCodes:
 		.dw level94Data
 #endif
 	.db 0
-	
-; Todo: automatically show password if there is one for the current level
+
 ; Todo: alt set of passwords, for jumps to pointers (full level select, cheats like having many lives (for that, have a variable in ram for the default amount of lives I guess?))
 
 ;==========================================
