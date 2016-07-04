@@ -97,7 +97,7 @@ PasswordInputScreenLoop:  ; Entry, jumped loop
 	; Do we have a complete password filled in?
 	ld a, (inputLen)
 	cp 7
-	jr z, CheckPassword  ; Holy shit we do
+	jp z, CheckPassword  ; Holy shit we do
 	
 	B_CALL(_GetKey)
 	ld b, a
@@ -159,6 +159,7 @@ PassBackspace:  ; Jumped
 	add hl, de
 	
 	ld (inputLen), a
+	call HandleAlphaLock
 	
 	xor a
 	ld (hl), a  ; Set character to 0x00
@@ -174,15 +175,31 @@ AddCharToPassInput:  ; Jumped, expects A to be the typed charaacter
 	
 	inc a
 	ld (inputLen), a
+	call HandleAlphaLock
 	
 	pop af
 	ld (hl), a  ; Set character to typed character
 
 	jp PasswordInputScreenLoop
+HandleAlphaLock:  ; Called
+	;jr HandleAlphaLock  ; DEBUG
+	cp 2
+	jr nc, SetAlphaLock
+ResAlphaLock:  ; Entry, but can also be called
+	res ShiftAlpha, (IY+ShiftFlags)
+	res ShiftALock, (IY+ShiftFlags)
+	res ShiftKeepAlph, (IY+ShiftFlags)
+	ret
+SetAlphaLock:  ; Jumped
+	set ShiftAlpha, (IY+ShiftFlags)  ; The latter two apparently aren't enough
+	set ShiftALock, (IY+ShiftFlags)
+	set ShiftKeepAlph, (IY+ShiftFlags)
+	ret
 ;------------------------------------------
 ; P a s s w o r d   v a l i d a t i o n
 ;------------------------------------------
 CheckPassword:  ; Jumped
+	call ResAlphaLock
 	ld hl, continueCodes
 CheckPasswordLoop:  ; Entry, jumped loop
 	ld a, (hl)

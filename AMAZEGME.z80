@@ -37,7 +37,7 @@ apos .equ $27  ; Apparently these cause issues in level names?
 ;------------------------------------------
 StartProg:  ; Entry, jumped
 	B_CALL(_ClrLCDFull)
-	
+StartProgAfterClr:  ; Entry, jumped
 	; Just start there...
 	xor a
 	ld (CURCOL), a
@@ -136,22 +136,22 @@ MenuHandleUp:  ; Jumped
 	jr c, MenuHandleEnd
 	jr z, MenuHandleEnd
 	ld (menuselection), a
-	jp StartProg
+	jp StartProgAfterClr
 MenuHandleDown:  ; Jumped
 	ld a, (menuselection)
 	inc a
 	cp 4
 	jr nc, MenuHandleStart
 	ld (menuselection), a
-	jp StartProg
+	jp StartProgAfterClr
 MenuHandleStart:  ; Jumped
 	ld a, 1
 	ld (menuselection), a
-	jp StartProg
+	jp StartProgAfterClr
 MenuHandleEnd:  ; Jumped
 	ld a, 3
 	ld (menuselection), a
-	jp StartProg
+	jp StartProgAfterClr
 MenuHandleSelect:  ; Jumped
 	ld a, (menuselection)
 	cp 1
