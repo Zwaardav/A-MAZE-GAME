@@ -182,7 +182,6 @@ AddCharToPassInput:  ; Jumped, expects A to be the typed charaacter
 
 	jp PasswordInputScreenLoop
 HandleAlphaLock:  ; Called
-	;jr HandleAlphaLock  ; DEBUG
 	cp 2
 	jr nc, SetAlphaLock
 ResAlphaLock:  ; Entry, but can also be called
@@ -295,7 +294,8 @@ DisplayContinueCode:  ; Called
 	
 	; Now the password itself!
 	ex de, hl
-	B_CALL(_VPutS)
+	ld b, 7
+	B_CALL(_VPutSN)
 	
 	ret
 FindLevelContinueCode:  ; Called
