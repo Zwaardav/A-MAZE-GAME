@@ -13,6 +13,7 @@ i/bytemod.inc | Used for modulo calculations
 
 ## How to run
 After sending AMAZEGME.8XP to your calculator, do the following:
+
 1. Press 2nd+0 to open the catalog
 2. Scroll to `Asm(` and select it
 3. Press PRGM and select AMAZEGME, then press enter again
