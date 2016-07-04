@@ -688,7 +688,7 @@ txtGameOver: .db "Game  Over",0
 txtContinuePassword: .db "Continue password: ",0
 
 #ifdef devLevels
-txtDevLevelsIncluded: .db $C1,"Debug levels included]",0
+txtDevLevelsIncluded: .db LlBrack,"Debug levels included]",0
 #endif
 
 
