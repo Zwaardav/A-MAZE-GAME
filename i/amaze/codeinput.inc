@@ -388,6 +388,8 @@ continueCodes:
 #ifdef devLevels
 	.db $3A,$3F,$50,$52,$50,$64,$57
 		.dw level4Data
+	.db $3A,$41,$50,$52,$50,$64,$57
+		.dw level6Data
 	.db $43,$44,$51,$5B,$53,$5C,$69
 		.dw level94Data
 #endif
