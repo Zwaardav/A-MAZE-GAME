@@ -238,13 +238,17 @@ CheckPasswordLoop:  ; Entry, jumped loop
 PassStrCmp:  ; Called. Expects HL, and gives a pointer to the next password back.
 	ld de, charInput
 	
+	ld a, 10
 	ld b, 7
 PassStrCmpLoop:  ; Entry, jumped loop
 	push bc
 	
+	ld c, a
+	
 	ld a, (hl)
 	ld b, a
 	ld a, (de)
+	add a, c
 	
 	cp b
 	jr z, PassSkipSet
@@ -254,6 +258,9 @@ PassSkipSet:  ; Entry, jumped
 	
 	inc hl
 	inc de
+	
+	inc c
+	ld a, c
 	
 	pop bc
 	djnz PassStrCmpLoop
@@ -294,9 +301,23 @@ DisplayContinueCode:  ; Called
 	
 	; Now the password itself!
 	ex de, hl
+	ld c, 10
 	ld b, 7
-	B_CALL(_VPutSN)
+DisplayContinueCodeLoop:  ; Entry, jumped loop
+	ld a, b
+	cp 5
+	call z, PutMapSpace
+	ld a, (hl)
+	sub c
+	B_CALL(_VPutMap)
+	inc c
+	inc hl
+	djnz DisplayContinueCodeLoop
 	
+	ret
+PutMapSpace:  ; Called
+	ld a, ' '
+	B_CALL(_VPutMap)
 	ret
 FindLevelContinueCode:  ; Called
 	ld hl, continueCodes-2
@@ -362,12 +383,12 @@ txtLetters: .db "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ;==========================================
 
 continueCodes:
-	.db "05ABCDE"
+	.db $3A,$40,$4D,$4F,$51,$53,$55
 		.dw level5Data
 #ifdef devLevels
-	.db "04DEBUG"
+	.db $3A,$3F,$50,$52,$50,$64,$57
 		.dw level4Data
-	.db "99ENEMY"
+	.db $43,$44,$51,$5B,$53,$5C,$69
 		.dw level94Data
 #endif
 	.db 0
