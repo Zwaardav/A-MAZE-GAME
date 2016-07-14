@@ -236,6 +236,9 @@ StartGameOverScreen:  ; Jumped
 	
 	B_CALL(_GetKey)
 	
+	ld a, 3
+	ld (playerLives), a
+	
 	jp StartProg
 ;------------------------------------------
 ; G a m e   p r e p a r a t i o n s
@@ -256,9 +259,7 @@ SkipOverLevelLoop:  ; Entry, jumped loop
 	
 	jr LoadLevel
 StartNewGame:  ; Jumped
-	; Start with the first level! And 3 lives.
-	ld a, 3
-	ld (playerLives), a
+	; Start with the first level!
 	
 	ld hl, level1Data
 
@@ -426,8 +427,15 @@ SkipInitEnemies:  ; Entry, jumped
 	B_CALL(_ClrLCDFull)
 	
 	xor a
-	ld (CURCOL), a
+	ld (PENCOL), a
+	ld (PENROW), a
+	
+	ld hl, txtLives
+	B_CALL(_VPutS)
+	
 	ld (CURROW), a
+	ld a, 3
+	ld (CURCOL), a
 	
 	ld a, (playerLives)
 	ld b, a
@@ -662,7 +670,7 @@ playerY: .db 0
 playerStartX: .db 0
 playerStartY: .db 0
 
-playerLives: .db 0
+playerLives: .db 3
 
 scrolled: .db 0
 
@@ -686,6 +694,7 @@ txtPasswordCorrect: .db "Correct!",0
 txtPasswordIncorrect: .db "Incorrect!",0
 txtGameOver: .db "Game  Over",0
 txtContinuePassword: .db "Continue password: ",0
+txtLives: .db "Lives",0
 
 #ifdef devLevels
 txtDevLevelsIncluded: .db LlBrack,"Debug levels included]",0

@@ -199,11 +199,13 @@ SetAlphaLock:  ; Jumped
 ;------------------------------------------
 CheckPassword:  ; Jumped
 	call ResAlphaLock
+	res 0, (IY+Asm_Flag1)  ; Character mismatch in current password
+	res 1, (IY+Asm_Flag1)  ; 0: Level ptr,  1: Jump
 	ld hl, continueCodes
 CheckPasswordLoop:  ; Entry, jumped loop
 	ld a, (hl)
 	or a
-	jr z, PasswordNoMatches
+	jr z, PasswordGotNull
 	
 	call PassStrCmp
 	
@@ -223,17 +225,22 @@ CheckPasswordLoop:  ; Entry, jumped loop
 	
 	call Delay
 	
-	ld a, 3
-	ld (playerLives), a
-	
 	pop ix
 	ld l, (ix) \ ld h, (ix+1)
+	
+	bit 1, (IY+Asm_Flag1)
+	res 1, (IY+Asm_Flag1)
+	jr nz, PasswordCorrectJump
 	
 	;.echo "[[["
 	;.echo $
 	;.echo "]]]"
 	
 	jp LoadLevel
+	
+PasswordCorrectJump:  ; Jumped
+	push hl
+	ret
 	
 PassStrCmp:  ; Called. Expects HL, and gives a pointer to the next password back.
 	ld de, charInput
@@ -273,8 +280,17 @@ PassSkipSet:  ; Entry, jumped
 	res 0, (IY+Asm_Flag1)
 	
 	ret
+PasswordGotNull:  ; Jumped
+	bit 1, (IY+Asm_Flag1)
+	jr nz, PasswordNoMatches  ; We've already been checking both level passwords and cheats, so it's just a case of "no matches"
 	
+	; Switching to mode 2!
+	set 1, (IY+Asm_Flag1)
+	inc hl  ; We obviously need to step beyond that null
+	jr CheckPasswordLoop
 PasswordNoMatches:  ; Jumped
+	res 1, (IY+Asm_Flag1)
+
 	xor a
 	ld (CURCOL), a
 	ld a, 7
@@ -364,7 +380,18 @@ LevelContinueCode404:  ; Jumped
 	; Just uncall and ret
 	pop hl
 	ret
+;------------------------------------------
+; C h e a t s
+;------------------------------------------
+CheatPlusLife:  ; Jumped
+	ld a, (playerLives)
+	inc a
+	ld (playerLives), a
 	
+	ld hl, txtPlusLife
+	B_CALL(_PutS)
+	B_CALL(_GetKey)
+	jr StartProg
 
 ;==========================================
 ; D A T A
@@ -376,6 +403,8 @@ charInput: .db 0,0,0,0,0,0,0
 txtNumbers: .db "0123456789"
 txtLetters: .db "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+txtPlusLife: .db " +1 life!",0
+
 ;==========================================
 ; C O N T I N U E   P A S S W O R D S
 ;==========================================
@@ -386,16 +415,15 @@ continueCodes:
 	.db $3A,$40,$4D,$4F,$51,$53,$55
 		.dw level5Data
 #ifdef devLevels
-	.db $3A,$3F,$50,$52,$50,$64,$57
-		.dw level4Data
 	.db $3A,$41,$50,$52,$50,$64,$57
 		.dw level6Data
 	.db $43,$44,$51,$5B,$53,$5C,$69
 		.dw level94Data
 #endif
 	.db 0
-
-; Todo: alt set of passwords, for jumps to pointers (full level select, cheats like having many lives (for that, have a variable in ram for the default amount of lives I guess?))
+	.db $3A,$3C,$64,$59,$57,$55,$55
+		.dw CheatPlusLife
+	.db 0
 
 ;==========================================
 ; E N D
