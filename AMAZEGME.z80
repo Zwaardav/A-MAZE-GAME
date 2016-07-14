@@ -426,9 +426,8 @@ SkipInitEnemies:  ; Entry, jumped
 	
 	B_CALL(_ClrLCDFull)
 	
-	xor a
-	ld (PENCOL), a
-	ld (PENROW), a
+	ld hl, $0000
+	ld (PENCOL), hl
 	
 	ld hl, txtLives
 	B_CALL(_VPutS)
